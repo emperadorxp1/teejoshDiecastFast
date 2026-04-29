@@ -38,7 +38,7 @@ export function ProductForm({
   const canSubmit = useMemo(
     () =>
       name.trim().length > 0 &&
-      Number(price) > 0 &&
+      parseDecimal(price) > 0 &&
       Number.isInteger(Number(quantity)) &&
       Number(quantity) >= 0,
     [name, price, quantity],
@@ -105,10 +105,10 @@ export function ProductForm({
               name="price"
               onChange={(event) => setPrice(event.target.value)}
               className="w-full px-4 outline-none"
-              min="0"
-              step="0.01"
+              inputMode="decimal"
+              pattern="[0-9]*[,.]?[0-9]*"
               placeholder="15.00"
-              type="number"
+              type="text"
             />
           </div>
         </label>
@@ -174,4 +174,8 @@ export function ProductForm({
       </button>
     </form>
   );
+}
+
+function parseDecimal(value: string) {
+  return Number(value.replace(",", "."));
 }

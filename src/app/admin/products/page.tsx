@@ -44,10 +44,7 @@ export default async function AdminProductsPage() {
                   value={product.quantity}
                 />
                 <button
-                  className="h-full w-full rounded-md bg-red-600 px-3 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
-                  disabled={
-                    product.status === "Disponible" && product.quantity > 0
-                  }
+                  className="h-full w-full rounded-md bg-red-600 px-3 py-2.5 text-sm font-black text-white"
                 >
                   Publicar
                 </button>

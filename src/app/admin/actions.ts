@@ -120,7 +120,7 @@ export async function publishProductAction(formData: FormData) {
 
 function getProductPayload(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const price = Number(formData.get("price"));
+  const price = parseDecimal(formData.get("price"));
   const quantity = Number(formData.get("quantity") ?? 1);
   const category = String(formData.get("category") ?? "Basico");
   const status = String(formData.get("status") ?? "Disponible");
@@ -144,6 +144,10 @@ function getProductPayload(formData: FormData) {
       ? status
       : "Disponible",
   };
+}
+
+function parseDecimal(value: FormDataEntryValue | null) {
+  return Number(String(value ?? "").replace(",", "."));
 }
 
 async function uploadProductImage(formData: FormData) {
