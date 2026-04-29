@@ -1,0 +1,16 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" fill="#f4f4f5"/>
+  <rect x="90" y="110" width="1020" height="680" rx="42" fill="#ffffff"/>
+  <path d="M171 524C216 407 311 336 442 310L545 219H761L889 322C969 345 1026 405 1059 501L1018 570H218L171 524Z" fill="#dc2626"/>
+  <path d="M445 338L557 247H739L839 338H445Z" fill="#18181b"/>
+  <path d="M486 320L574 268H650L642 320H486Z" fill="#e0f2fe"/>
+  <path d="M667 320L675 268H729L788 320H667Z" fill="#e0f2fe"/>
+  <path d="M226 523H1013" stroke="#18181b" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="342" cy="572" r="95" fill="#18181b"/>
+  <circle cx="342" cy="572" r="45" fill="#d4d4d8"/>
+  <circle cx="887" cy="572" r="95" fill="#18181b"/>
+  <circle cx="887" cy="572" r="45" fill="#d4d4d8"/>
+  <path d="M173 442H279L237 499H150C147 480 155 460 173 442Z" fill="#facc15"/>
+  <path d="M1000 443H1073C1082 465 1083 486 1075 507H968L1000 443Z" fill="#fee2e2"/>
+  <text x="600" y="708" text-anchor="middle" fill="#18181b" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="800">TEEJOSH HOT WHEELS</text>
+</svg>
