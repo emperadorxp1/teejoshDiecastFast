@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminActionButton } from "@/components/AdminActionButton";
 import { ProductCard } from "@/components/ProductCard";
 import { getProducts } from "@/lib/products";
 import { markProductSoldAction, publishProductAction } from "../actions";
@@ -43,17 +44,18 @@ export default async function AdminProductsPage() {
                   type="hidden"
                   value={product.quantity}
                 />
-                <button
-                  className="h-full w-full rounded-md bg-red-600 px-3 py-2.5 text-sm font-black text-white"
+                <AdminActionButton
+                  pendingLabel="Publicando..."
+                  variant="primary"
                 >
                   Publicar
-                </button>
+                </AdminActionButton>
               </form>
               <form action={markProductSoldAction}>
                 <input name="id" type="hidden" value={product.id} />
-                <button className="h-full w-full rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-800">
+                <AdminActionButton pendingLabel="Marcando...">
                   Marcar vendido
-                </button>
+                </AdminActionButton>
               </form>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
   PRODUCT_CATEGORIES,
   PRODUCT_STATUSES,
@@ -33,15 +34,6 @@ export function ProductForm({
   );
   const [status, setStatus] = useState<ProductStatus>(
     initialProduct?.status ?? "Disponible",
-  );
-
-  const canSubmit = useMemo(
-    () =>
-      name.trim().length > 0 &&
-      parseDecimal(price) > 0 &&
-      Number.isInteger(Number(quantity)) &&
-      Number(quantity) >= 0,
-    [name, price, quantity],
   );
 
   return (
@@ -87,6 +79,7 @@ export function ProductForm({
           onChange={(event) => setName(event.target.value)}
           className="h-12 w-full rounded-md border border-zinc-300 bg-white px-4 text-base outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
           placeholder="Nissan Skyline"
+          required
           type="text"
         />
       </label>
@@ -108,6 +101,7 @@ export function ProductForm({
               inputMode="decimal"
               pattern="[0-9]*[,.]?[0-9]*"
               placeholder="15.00"
+              required
               type="text"
             />
           </div>
@@ -123,6 +117,7 @@ export function ProductForm({
             onChange={(event) => setQuantity(event.target.value)}
             className="h-12 w-full rounded-md border border-zinc-300 bg-white px-4 text-base outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
             min="0"
+            required
             step="1"
             type="number"
           />
@@ -165,17 +160,21 @@ export function ProductForm({
         </label>
       </div>
 
-      <button
-        type="submit"
-        disabled={!canSubmit}
-        className="min-h-12 w-full rounded-md bg-red-600 px-5 py-3 text-base font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
-      >
-        {submitLabel}
-      </button>
+      <ProductSubmitButton label={submitLabel} />
     </form>
   );
 }
 
-function parseDecimal(value: string) {
-  return Number(value.replace(",", "."));
+function ProductSubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="min-h-12 w-full rounded-md bg-red-600 px-5 py-3 text-base font-black text-white transition hover:bg-red-700 disabled:cursor-wait disabled:bg-red-400"
+    >
+      {pending ? "Guardando..." : label}
+    </button>
+  );
 }
