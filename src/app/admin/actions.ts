@@ -99,6 +99,25 @@ export async function markProductSoldAction(formData: FormData) {
   revalidatePath("/catalogo");
 }
 
+export async function publishProductAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const quantity = Number(formData.get("quantity") ?? 0);
+  const nextQuantity =
+    Number.isInteger(quantity) && quantity > 0 ? quantity : 1;
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("products")
+    .update({ status: "Disponible", quantity: nextQuantity })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/products");
+  revalidatePath("/catalogo");
+}
+
 function getProductPayload(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const price = Number(formData.get("price"));

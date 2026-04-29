@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
 import { getProducts } from "@/lib/products";
-import { markProductSoldAction } from "../actions";
+import { markProductSoldAction, publishProductAction } from "../actions";
 
 export default async function AdminProductsPage() {
   const products = await getProducts();
@@ -29,13 +29,29 @@ export default async function AdminProductsPage() {
         {products.map((product) => (
           <div key={product.id} className="space-y-2">
             <ProductCard product={product} showActions={false} />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               <Link
                 href={`/admin/products/${product.id}/edit`}
                 className="rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-center text-sm font-semibold text-zinc-800"
               >
                 Editar
               </Link>
+              <form action={publishProductAction}>
+                <input name="id" type="hidden" value={product.id} />
+                <input
+                  name="quantity"
+                  type="hidden"
+                  value={product.quantity}
+                />
+                <button
+                  className="h-full w-full rounded-md bg-red-600 px-3 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+                  disabled={
+                    product.status === "Disponible" && product.quantity > 0
+                  }
+                >
+                  Publicar
+                </button>
+              </form>
               <form action={markProductSoldAction}>
                 <input name="id" type="hidden" value={product.id} />
                 <button className="h-full w-full rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-800">
