@@ -24,7 +24,7 @@ export function ProductCard({ product, showActions = true }: ProductCardProps) {
           alt={product.name}
           fill
           sizes="(min-width: 768px) 280px, 100vw"
-          className="object-cover"
+          className="object-contain"
         />
       </div>
 
