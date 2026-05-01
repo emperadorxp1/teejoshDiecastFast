@@ -10,13 +10,7 @@ import {
   type ProductStatus,
 } from "@/types/product";
 
-type OcrStatus = "idle" | "reading" | "done" | "error";
-
-type OcrCandidate = {
-  confidence: number;
-  suggestion: string;
-  text: string;
-};
+type NameReaderStatus = "idle" | "reading" | "done" | "error";
 
 type ProductFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -24,29 +18,16 @@ type ProductFormProps = {
   submitLabel?: string;
 };
 
-const ignoredOcrLines = [
-  "hot wheels",
-  "hw",
-  "mattel",
-  "die-cast",
-  "die cast",
-  "made in",
-  "warning",
-  "adult",
-  "collector",
-  "not for",
-  "3+",
-];
-
 export function ProductForm({
   action,
   initialProduct,
   submitLabel = "Publicar",
 }: ProductFormProps) {
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [ocrStatus, setOcrStatus] = useState<OcrStatus>("idle");
-  const [ocrText, setOcrText] = useState("");
-  const [ocrSuggestion, setOcrSuggestion] = useState("");
+  const [nameReaderStatus, setNameReaderStatus] =
+    useState<NameReaderStatus>("idle");
+  const [detectedText, setDetectedText] = useState("");
+  const [nameSuggestion, setNameSuggestion] = useState("");
   const [name, setName] = useState(initialProduct?.name ?? "");
   const nameRef = useRef(initialProduct?.name ?? "");
   const [price, setPrice] = useState(
@@ -61,59 +42,48 @@ export function ProductForm({
   const [status, setStatus] = useState<ProductStatus>(
     initialProduct?.status ?? "Disponible",
   );
-  const ocrJobId = useRef(0);
+  const nameReaderJobId = useRef(0);
 
-  async function readTextFromImage(file: File) {
-    const jobId = ocrJobId.current + 1;
-    ocrJobId.current = jobId;
-    setOcrStatus("reading");
-    setOcrText("");
-    setOcrSuggestion("");
+  async function readNameFromImage(file: File) {
+    const jobId = nameReaderJobId.current + 1;
+    nameReaderJobId.current = jobId;
+    setNameReaderStatus("reading");
+    setDetectedText("");
+    setNameSuggestion("");
 
     try {
-      const [{ createWorker, PSM }, imageVariants] = await Promise.all([
-        import("tesseract.js"),
-        createOcrImageVariants(file),
-      ]);
-      const worker = await createWorker("eng");
-      await worker.setParameters({
-        preserve_interword_spaces: "1",
-        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
-        user_defined_dpi: "300",
+      const formData = new FormData();
+      const imageForAi = await resizeImageForAi(file);
+      formData.append("image", imageForAi);
+
+      const response = await fetch("/api/read-product-name", {
+        method: "POST",
+        body: formData,
       });
 
-      const candidates: OcrCandidate[] = [];
-
-      for (const imageVariant of imageVariants) {
-        const result = await worker.recognize(imageVariant);
-        const text = result.data.text.trim();
-
-        if (text) {
-          candidates.push({
-            confidence: result.data.confidence,
-            suggestion: getBestProductName(text),
-            text,
-          });
-        }
+      if (!response.ok) {
+        throw new Error("No se pudo leer el nombre.");
       }
 
-      await worker.terminate();
+      const result = (await response.json()) as {
+        name?: string;
+        visibleText?: string;
+      };
 
-      if (ocrJobId.current !== jobId) return;
+      if (nameReaderJobId.current !== jobId) return;
 
-      const bestCandidate = getBestOcrCandidate(candidates);
-      const suggestion = bestCandidate?.suggestion ?? "";
-      setOcrText(bestCandidate?.text ?? "");
-      setOcrSuggestion(suggestion);
-      setOcrStatus("done");
+      const suggestion = result.name?.trim() ?? "";
+      setDetectedText(result.visibleText?.trim() ?? "");
+      setNameSuggestion(suggestion);
+      setNameReaderStatus("done");
 
       if (!nameRef.current.trim() && suggestion) {
         nameRef.current = suggestion;
         setName(suggestion);
       }
     } catch {
-      if (ocrJobId.current !== jobId) return;
-      setOcrStatus("error");
+      if (nameReaderJobId.current !== jobId) return;
+      setNameReaderStatus("error");
     }
   }
 
@@ -150,30 +120,30 @@ export function ProductForm({
                 if (currentPreview) URL.revokeObjectURL(currentPreview);
                 return URL.createObjectURL(file);
               });
-              void readTextFromImage(file);
+              void readNameFromImage(file);
             }}
           />
         </div>
       </label>
 
-      {ocrStatus !== "idle" ? (
+      {nameReaderStatus !== "idle" ? (
         <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-zinc-900">
-              {ocrStatus === "reading"
-                ? "Detectando texto..."
-                : ocrStatus === "error"
-                  ? "No se pudo detectar texto"
-                  : ocrSuggestion
-                    ? "Texto detectado"
-                    : "No se encontro texto util"}
+              {nameReaderStatus === "reading"
+                ? "Leyendo nombre con IA..."
+                : nameReaderStatus === "error"
+                  ? "No se pudo leer el nombre"
+                  : nameSuggestion
+                    ? "Nombre sugerido"
+                    : "No se encontro un nombre claro"}
             </p>
-            {ocrSuggestion ? (
+            {nameSuggestion ? (
               <button
                 type="button"
                 onClick={() => {
-                  nameRef.current = ocrSuggestion;
-                  setName(ocrSuggestion);
+                  nameRef.current = nameSuggestion;
+                  setName(nameSuggestion);
                 }}
                 className="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-800"
               >
@@ -181,18 +151,18 @@ export function ProductForm({
               </button>
             ) : null}
           </div>
-          {ocrSuggestion ? (
+          {nameSuggestion ? (
             <p className="mt-2 text-sm font-bold text-red-600">
-              {ocrSuggestion}
+              {nameSuggestion}
             </p>
           ) : null}
-          {ocrText ? (
+          {detectedText ? (
             <textarea
-              value={ocrText}
+              value={detectedText}
               readOnly
               rows={3}
               className="mt-3 w-full resize-none rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 outline-none"
-              aria-label="Texto detectado en la foto"
+              aria-label="Texto visible en la foto"
             />
           ) : null}
         </div>
@@ -297,150 +267,29 @@ export function ProductForm({
   );
 }
 
-function getBestProductName(text: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => cleanOcrLine(line))
-    .filter((line) => line.length >= 3)
-    .filter((line) => {
-      const normalizedLine = line.toLowerCase();
-      return !ignoredOcrLines.some((ignoredLine) =>
-        normalizedLine.includes(ignoredLine),
-      );
-    });
-
-  return (
-    lines
-      .sort((firstLine, secondLine) => {
-        const firstScore = scoreOcrLine(firstLine);
-        const secondScore = scoreOcrLine(secondLine);
-
-        if (secondScore !== firstScore) return secondScore - firstScore;
-        return secondLine.length - firstLine.length;
-      })
-      .at(0) ?? ""
-  );
-}
-
-function getBestOcrCandidate(candidates: OcrCandidate[]) {
-  return (
-    candidates
-      .filter((candidate) => candidate.suggestion)
-      .sort((firstCandidate, secondCandidate) => {
-        const firstScore =
-          scoreOcrLine(firstCandidate.suggestion) + firstCandidate.confidence;
-        const secondScore =
-          scoreOcrLine(secondCandidate.suggestion) +
-          secondCandidate.confidence;
-
-        return secondScore - firstScore;
-      })
-      .at(0) ??
-    candidates
-      .sort(
-        (firstCandidate, secondCandidate) =>
-          secondCandidate.confidence - firstCandidate.confidence,
-      )
-      .at(0)
-  );
-}
-
-async function createOcrImageVariants(file: File) {
+async function resizeImageForAi(file: File) {
   const image = await createImageBitmap(file);
-  const fullImage = createProcessedCanvas(image, {
-    height: image.height,
-    mode: "contrast",
-    top: 0,
-    width: image.width,
-    left: 0,
-  });
-  const lowerImage = createProcessedCanvas(image, {
-    height: Math.round(image.height * 0.55),
-    mode: "threshold",
-    top: Math.round(image.height * 0.45),
-    width: image.width,
-    left: 0,
-  });
-  image.close();
-
-  return [lowerImage, fullImage];
-}
-
-function createProcessedCanvas(
-  image: ImageBitmap,
-  options: {
-    height: number;
-    left: number;
-    mode: "contrast" | "threshold";
-    top: number;
-    width: number;
-  },
-) {
+  const maxSize = 1600;
+  const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
   const canvas = document.createElement("canvas");
-  const targetWidth = Math.min(1800, Math.max(1200, options.width));
-  const scale = targetWidth / options.width;
-  const targetHeight = Math.round(options.height * scale);
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
 
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) return canvas;
-
-  context.drawImage(
-    image,
-    options.left,
-    options.top,
-    options.width,
-    options.height,
-    0,
-    0,
-    targetWidth,
-    targetHeight,
-  );
-
-  const imageData = context.getImageData(0, 0, targetWidth, targetHeight);
-  const pixels = imageData.data;
-
-  for (let index = 0; index < pixels.length; index += 4) {
-    const gray =
-      pixels[index] * 0.299 +
-      pixels[index + 1] * 0.587 +
-      pixels[index + 2] * 0.114;
-    const contrastGray = clamp((gray - 128) * 1.65 + 128);
-    const value =
-      options.mode === "threshold"
-        ? contrastGray > 150
-          ? 255
-          : 0
-        : contrastGray;
-
-    pixels[index] = value;
-    pixels[index + 1] = value;
-    pixels[index + 2] = value;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    image.close();
+    return file;
   }
 
-  context.putImageData(imageData, 0, 0);
-  return canvas;
-}
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close();
 
-function clamp(value: number) {
-  return Math.max(0, Math.min(255, value));
-}
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.86);
+  });
 
-function cleanOcrLine(line: string) {
-  return line
-    .replace(/[^\w\s'./-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function scoreOcrLine(line: string) {
-  const words = line.split(" ").filter(Boolean);
-  const letterCount = (line.match(/[A-Za-z]/g) ?? []).length;
-  const digitCount = (line.match(/\d/g) ?? []).length;
-  const hasModelCode = /\b[A-Z0-9]{2,}\b/.test(line);
-
-  return words.length * 3 + letterCount - digitCount + (hasModelCode ? 2 : 0);
+  if (!blob) return file;
+  return new File([blob], "product-photo.jpg", { type: "image/jpeg" });
 }
 
 function ProductSubmitButton({ label }: { label: string }) {
