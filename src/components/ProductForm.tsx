@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   PRODUCT_CATEGORIES,
@@ -10,11 +10,27 @@ import {
   type ProductStatus,
 } from "@/types/product";
 
+type OcrStatus = "idle" | "reading" | "done" | "error";
+
 type ProductFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   initialProduct?: Product;
   submitLabel?: string;
 };
+
+const ignoredOcrLines = [
+  "hot wheels",
+  "hw",
+  "mattel",
+  "die-cast",
+  "die cast",
+  "made in",
+  "warning",
+  "adult",
+  "collector",
+  "not for",
+  "3+",
+];
 
 export function ProductForm({
   action,
@@ -22,7 +38,11 @@ export function ProductForm({
   submitLabel = "Publicar",
 }: ProductFormProps) {
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [ocrStatus, setOcrStatus] = useState<OcrStatus>("idle");
+  const [ocrText, setOcrText] = useState("");
+  const [ocrSuggestion, setOcrSuggestion] = useState("");
   const [name, setName] = useState(initialProduct?.name ?? "");
+  const nameRef = useRef(initialProduct?.name ?? "");
   const [price, setPrice] = useState(
     initialProduct ? String(initialProduct.price) : "",
   );
@@ -35,6 +55,36 @@ export function ProductForm({
   const [status, setStatus] = useState<ProductStatus>(
     initialProduct?.status ?? "Disponible",
   );
+  const ocrJobId = useRef(0);
+
+  async function readTextFromImage(file: File) {
+    const jobId = ocrJobId.current + 1;
+    ocrJobId.current = jobId;
+    setOcrStatus("reading");
+    setOcrText("");
+    setOcrSuggestion("");
+
+    try {
+      const { recognize } = await import("tesseract.js");
+      const result = await recognize(file, "eng");
+
+      if (ocrJobId.current !== jobId) return;
+
+      const text = result.data.text.trim();
+      const suggestion = getBestProductName(text);
+      setOcrText(text);
+      setOcrSuggestion(suggestion);
+      setOcrStatus("done");
+
+      if (!nameRef.current.trim() && suggestion) {
+        nameRef.current = suggestion;
+        setName(suggestion);
+      }
+    } catch {
+      if (ocrJobId.current !== jobId) return;
+      setOcrStatus("error");
+    }
+  }
 
   return (
     <form action={action} className="space-y-5">
@@ -63,11 +113,59 @@ export function ProductForm({
             className="absolute inset-0 cursor-pointer opacity-0"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) setImagePreview(URL.createObjectURL(file));
+              if (!file) return;
+
+              setImagePreview((currentPreview) => {
+                if (currentPreview) URL.revokeObjectURL(currentPreview);
+                return URL.createObjectURL(file);
+              });
+              void readTextFromImage(file);
             }}
           />
         </div>
       </label>
+
+      {ocrStatus !== "idle" ? (
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-zinc-900">
+              {ocrStatus === "reading"
+                ? "Detectando texto..."
+                : ocrStatus === "error"
+                  ? "No se pudo detectar texto"
+                  : ocrSuggestion
+                    ? "Texto detectado"
+                    : "No se encontro texto util"}
+            </p>
+            {ocrSuggestion ? (
+              <button
+                type="button"
+                onClick={() => {
+                  nameRef.current = ocrSuggestion;
+                  setName(ocrSuggestion);
+                }}
+                className="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-800"
+              >
+                Usar
+              </button>
+            ) : null}
+          </div>
+          {ocrSuggestion ? (
+            <p className="mt-2 text-sm font-bold text-red-600">
+              {ocrSuggestion}
+            </p>
+          ) : null}
+          {ocrText ? (
+            <textarea
+              value={ocrText}
+              readOnly
+              rows={3}
+              className="mt-3 w-full resize-none rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 outline-none"
+              aria-label="Texto detectado en la foto"
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <label className="block">
         <span className="mb-2 block text-sm font-semibold text-zinc-900">
@@ -76,7 +174,10 @@ export function ProductForm({
         <input
           value={name}
           name="name"
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => {
+            nameRef.current = event.target.value;
+            setName(event.target.value);
+          }}
           className="h-12 w-full rounded-md border border-zinc-300 bg-white px-4 text-base outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
           placeholder="Nissan Skyline"
           required
@@ -163,6 +264,47 @@ export function ProductForm({
       <ProductSubmitButton label={submitLabel} />
     </form>
   );
+}
+
+function getBestProductName(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => cleanOcrLine(line))
+    .filter((line) => line.length >= 3)
+    .filter((line) => {
+      const normalizedLine = line.toLowerCase();
+      return !ignoredOcrLines.some((ignoredLine) =>
+        normalizedLine.includes(ignoredLine),
+      );
+    });
+
+  return (
+    lines
+      .sort((firstLine, secondLine) => {
+        const firstScore = scoreOcrLine(firstLine);
+        const secondScore = scoreOcrLine(secondLine);
+
+        if (secondScore !== firstScore) return secondScore - firstScore;
+        return secondLine.length - firstLine.length;
+      })
+      .at(0) ?? ""
+  );
+}
+
+function cleanOcrLine(line: string) {
+  return line
+    .replace(/[^\w\s'./-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreOcrLine(line: string) {
+  const words = line.split(" ").filter(Boolean);
+  const letterCount = (line.match(/[A-Za-z]/g) ?? []).length;
+  const digitCount = (line.match(/\d/g) ?? []).length;
+  const hasModelCode = /\b[A-Z0-9]{2,}\b/.test(line);
+
+  return words.length * 3 + letterCount - digitCount + (hasModelCode ? 2 : 0);
 }
 
 function ProductSubmitButton({ label }: { label: string }) {
