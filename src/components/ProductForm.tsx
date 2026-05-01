@@ -12,6 +12,12 @@ import {
 
 type OcrStatus = "idle" | "reading" | "done" | "error";
 
+type OcrCandidate = {
+  confidence: number;
+  suggestion: string;
+  text: string;
+};
+
 type ProductFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   initialProduct?: Product;
@@ -65,14 +71,39 @@ export function ProductForm({
     setOcrSuggestion("");
 
     try {
-      const { recognize } = await import("tesseract.js");
-      const result = await recognize(file, "eng");
+      const [{ createWorker, PSM }, imageVariants] = await Promise.all([
+        import("tesseract.js"),
+        createOcrImageVariants(file),
+      ]);
+      const worker = await createWorker("eng");
+      await worker.setParameters({
+        preserve_interword_spaces: "1",
+        tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+        user_defined_dpi: "300",
+      });
+
+      const candidates: OcrCandidate[] = [];
+
+      for (const imageVariant of imageVariants) {
+        const result = await worker.recognize(imageVariant);
+        const text = result.data.text.trim();
+
+        if (text) {
+          candidates.push({
+            confidence: result.data.confidence,
+            suggestion: getBestProductName(text),
+            text,
+          });
+        }
+      }
+
+      await worker.terminate();
 
       if (ocrJobId.current !== jobId) return;
 
-      const text = result.data.text.trim();
-      const suggestion = getBestProductName(text);
-      setOcrText(text);
+      const bestCandidate = getBestOcrCandidate(candidates);
+      const suggestion = bestCandidate?.suggestion ?? "";
+      setOcrText(bestCandidate?.text ?? "");
       setOcrSuggestion(suggestion);
       setOcrStatus("done");
 
@@ -289,6 +320,111 @@ function getBestProductName(text: string) {
       })
       .at(0) ?? ""
   );
+}
+
+function getBestOcrCandidate(candidates: OcrCandidate[]) {
+  return (
+    candidates
+      .filter((candidate) => candidate.suggestion)
+      .sort((firstCandidate, secondCandidate) => {
+        const firstScore =
+          scoreOcrLine(firstCandidate.suggestion) + firstCandidate.confidence;
+        const secondScore =
+          scoreOcrLine(secondCandidate.suggestion) +
+          secondCandidate.confidence;
+
+        return secondScore - firstScore;
+      })
+      .at(0) ??
+    candidates
+      .sort(
+        (firstCandidate, secondCandidate) =>
+          secondCandidate.confidence - firstCandidate.confidence,
+      )
+      .at(0)
+  );
+}
+
+async function createOcrImageVariants(file: File) {
+  const image = await createImageBitmap(file);
+  const fullImage = createProcessedCanvas(image, {
+    height: image.height,
+    mode: "contrast",
+    top: 0,
+    width: image.width,
+    left: 0,
+  });
+  const lowerImage = createProcessedCanvas(image, {
+    height: Math.round(image.height * 0.55),
+    mode: "threshold",
+    top: Math.round(image.height * 0.45),
+    width: image.width,
+    left: 0,
+  });
+  image.close();
+
+  return [lowerImage, fullImage];
+}
+
+function createProcessedCanvas(
+  image: ImageBitmap,
+  options: {
+    height: number;
+    left: number;
+    mode: "contrast" | "threshold";
+    top: number;
+    width: number;
+  },
+) {
+  const canvas = document.createElement("canvas");
+  const targetWidth = Math.min(1800, Math.max(1200, options.width));
+  const scale = targetWidth / options.width;
+  const targetHeight = Math.round(options.height * scale);
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return canvas;
+
+  context.drawImage(
+    image,
+    options.left,
+    options.top,
+    options.width,
+    options.height,
+    0,
+    0,
+    targetWidth,
+    targetHeight,
+  );
+
+  const imageData = context.getImageData(0, 0, targetWidth, targetHeight);
+  const pixels = imageData.data;
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const gray =
+      pixels[index] * 0.299 +
+      pixels[index + 1] * 0.587 +
+      pixels[index + 2] * 0.114;
+    const contrastGray = clamp((gray - 128) * 1.65 + 128);
+    const value =
+      options.mode === "threshold"
+        ? contrastGray > 150
+          ? 255
+          : 0
+        : contrastGray;
+
+    pixels[index] = value;
+    pixels[index + 1] = value;
+    pixels[index + 2] = value;
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+function clamp(value: number) {
+  return Math.max(0, Math.min(255, value));
 }
 
 function cleanOcrLine(line: string) {
