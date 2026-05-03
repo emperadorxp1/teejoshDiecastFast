@@ -49,6 +49,12 @@ export function ProductCard({ product, showActions = true }: ProductCardProps) {
           {formatPrice(product.price)}
         </p>
 
+        {product.price === 7 && (
+          <span className="inline-block rounded-md bg-amber-400 px-2 py-1 text-xs font-bold text-amber-950">
+            Lleva 3 x S/15
+          </span>
+        )}
+
         {showActions && product.status !== "Vendido" && product.quantity > 0 ? (
           <WhatsAppButton productName={product.name} />
         ) : null}
