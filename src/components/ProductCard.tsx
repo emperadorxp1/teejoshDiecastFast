@@ -17,7 +17,7 @@ const statusStyles: Record<Product["status"], string> = {
 
 export function ProductCard({ product, showActions = true }: ProductCardProps) {
   return (
-    <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
       <div className="relative aspect-[4/3] bg-zinc-100">
         <Image
           src={product.imageUrl}
@@ -28,7 +28,7 @@ export function ProductCard({ product, showActions = true }: ProductCardProps) {
         />
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="flex flex-1 flex-col p-4">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-base font-bold leading-tight text-zinc-950">
@@ -45,19 +45,21 @@ export function ProductCard({ product, showActions = true }: ProductCardProps) {
           </p>
         </div>
 
-        <p className="text-2xl font-black text-red-600">
+        <p className="mt-3 text-2xl font-black text-red-600">
           {formatPrice(product.price)}
         </p>
 
         {product.price === 7 && (
-          <span className="inline-block rounded-md bg-amber-400 px-2 py-1 text-xs font-bold text-amber-950">
+          <span className="mt-2 inline-block self-start rounded-md bg-amber-400 px-2 py-1 text-xs font-bold text-amber-950">
             Lleva 3 x S/15
           </span>
         )}
 
-        {showActions && product.status !== "Vendido" && product.quantity > 0 ? (
-          <WhatsAppButton productName={product.name} />
-        ) : null}
+        <div className="mt-auto pt-3">
+          {showActions && product.status !== "Vendido" && product.quantity > 0 ? (
+            <WhatsAppButton productName={product.name} />
+          ) : null}
+        </div>
       </div>
     </article>
   );
