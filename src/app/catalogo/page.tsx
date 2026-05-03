@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ProductCard } from "@/components/ProductCard";
+import { CatalogGrid } from "@/components/CatalogGrid";
 import { getCatalogProducts } from "@/lib/products";
 
 export default async function CatalogPage() {
@@ -34,19 +34,7 @@ export default async function CatalogPage() {
           </h2>
         </div>
 
-        {publicProducts.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-            {publicProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center">
-            <p className="font-bold text-zinc-950">
-              No hay carritos disponibles por ahora.
-            </p>
-          </div>
-        )}
+        <CatalogGrid products={publicProducts} />
       </section>
     </main>
   );
