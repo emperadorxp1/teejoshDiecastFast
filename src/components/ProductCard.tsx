@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/lib/products";
 import { WhatsAppButton } from "./WhatsAppButton";
@@ -18,7 +19,7 @@ const statusStyles: Record<Product["status"], string> = {
 export function ProductCard({ product, showActions = true }: ProductCardProps) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-      <div className="relative aspect-[4/3] bg-zinc-100">
+      <Link href={`/catalogo/${product.id}`} className="relative aspect-[4/3] bg-zinc-100 block">
         <Image
           src={product.imageUrl}
           alt={product.name}
@@ -26,14 +27,14 @@ export function ProductCard({ product, showActions = true }: ProductCardProps) {
           sizes="(min-width: 768px) 280px, 100vw"
           className="object-contain"
         />
-      </div>
+      </Link>
 
       <div className="flex flex-1 flex-col p-4">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="text-base font-bold leading-tight text-zinc-950">
+            <Link href={`/catalogo/${product.id}`} className="text-base font-bold leading-tight text-zinc-950 hover:underline">
               {product.name}
-            </h2>
+            </Link>
             <span
               className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${statusStyles[product.status]}`}
             >
