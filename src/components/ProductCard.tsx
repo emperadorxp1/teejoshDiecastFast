@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/types/product";
-import { formatPrice } from "@/lib/products";
+import { formatPrice } from "@/lib/format";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 type ProductCardProps = {

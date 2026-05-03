@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductById, formatPrice } from "@/lib/products";
+import { getProductById } from "@/lib/products";
+import { formatPrice } from "@/lib/format";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 const statusStyles = {

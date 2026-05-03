@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { formatPrice, getProducts } from "@/lib/products";
+import { getProducts } from "@/lib/products";
+import { formatPrice } from "@/lib/format";
 import { signOutAction } from "./actions";
 
 export default async function AdminPage() {
